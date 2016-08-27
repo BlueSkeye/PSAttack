@@ -49,28 +49,34 @@ namespace PSAttack.Shell
         public override Dictionary<string, PSObject> Prompt(string caption, string message,
             Collection<FieldDescription> descriptions)
         {
-            return (null == descriptions) ? null : GetParameters(descriptions);
+            if (null == descriptions) { return null; }
+            throw new NotImplementedException();
+            //return (null == descriptions) ? null : GetParameters(descriptions);
         }
 
-        private Dictionary<string, PSObject> GetParameters(Collection<FieldDescription> descriptions)
-        {
-            Dictionary<string, System.Management.Automation.PSObject> rtn = new Dictionary<string, System.Management.Automation.PSObject>();
-            PSParamType parm = new PSParamType();
-            foreach (FieldDescription descr in descriptions) {
-                PSParameter prm = new PSParameter();
-                prm.Name = descr.Name;
-                prm.Category = (descr.IsMandatory) ? "Required" : "Optional";
-                prm.DefaultValue = descr.DefaultValue;
-                prm.Description = descr.HelpMessage;
-                prm.Type = Type.GetType(descr.ParameterAssemblyFullName);
-                if (prm.Name.ToLower() == "file" || prm.Name.ToLower() == "filename") {
-                    prm.IsFileName = true;
-                }
-                if (prm.Name.ToLower() == "credential") { prm.IsCredential = true; }
-                parm.Properties.Add(prm);
-            }
-            return rtn;
-        }
+        //private Dictionary<string, PSObject> GetParameters(Collection<FieldDescription> descriptions)
+        //{
+        //    Dictionary<string, PSObject> result = new Dictionary<string, PSObject>();
+        //    PSParamType parm = new PSParamType();
+        //    foreach (FieldDescription descr in descriptions) {
+        //        PSParameter addedParameter = new PSParameter() {
+        //            Name = descr.Name,
+        //            Category = (descr.IsMandatory) ? "Required" : "Optional",
+        //            DefaultValue = descr.DefaultValue,
+        //            Description = descr.HelpMessage,
+        //            Type = Type.GetType(descr.ParameterAssemblyFullName)
+        //        };
+        //        string canonicParameterName = addedParameter.Name.ToLower();
+        //        if (canonicParameterName == "file" || canonicParameterName == "filename") {
+        //            addedParameter.IsFileName = true;
+        //        }
+        //        if (canonicParameterName == "credential") {
+        //            addedParameter.IsCredential = true;
+        //        }
+        //        parm.Properties.Add(addedParameter);
+        //    }
+        //    return result;
+        //}
 
         public override void Write(ConsoleColor foregroundColor, ConsoleColor backgroundColor, string message)
         {

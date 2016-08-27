@@ -15,14 +15,9 @@ namespace PSAttack.Shell
         public bool IsFileName { get; set; }
         public bool IsHostList { get; set; }
         public bool IsCredential { get; set; }
-        private Type type;
 
         [XmlIgnoreAttribute()]
-        public Type Type
-        {
-            get { return type; }
-            set { type = value; }
-        }
+        public Type Type { get; set; }
 
         public string TypeName
         {
@@ -32,7 +27,7 @@ namespace PSAttack.Shell
                     ? (Value ?? DefaultValue).GetType().ToString()
                     : string.Empty;
             }
-            set { type = Type.GetType(value); }
+            set { Type = Type.GetType(value); }
         }
     }
 }
