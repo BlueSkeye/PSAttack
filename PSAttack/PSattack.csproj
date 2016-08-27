@@ -80,21 +80,20 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="PSAttackProcessing\TabExpansion.cs" />
-    <Compile Include="PSAttackShell\PSColors.cs" />
-    <Compile Include="Utils\Display.cs" />
-    <Compile Include="PSAttackProcessing\AttackState.cs" />
+    <Compile Include="Processing\TabExpander.cs" />
+    <Compile Include="Shell\PSColors.cs" />
+    <Compile Include="Processing\Display.cs" />
+    <Compile Include="Processing\AttackState.cs" />
     <Compile Include="Utils\CryptoUtils.cs" />
-    <Compile Include="PSAttackProcessing\Processing.cs" />
+    <Compile Include="Processing\CommandProcessor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="PSAttackShell\PSParameter.cs" />
-    <Compile Include="PSAttackShell\PSParamType.cs" />
-    <Compile Include="PSAttackShell\PSAttackHost.cs" />
-    <Compile Include="PSAttackShell\PSAttackHostRawUserInterface.cs" />
-    <Compile Include="PSAttackShell\PSAttackHostUserInterface.cs" />
+    <Compile Include="Shell\PSParameter.cs" />
+    <Compile Include="Shell\PSParamType.cs" />
+    <Compile Include="Shell\PSAttackHost.cs" />
+    <Compile Include="Shell\PSAttackHostRawUserInterface.cs" />
+    <Compile Include="Shell\PSAttackHostUserInterface.cs" />
     <Compile Include="Strings.cs" />
-    <Compile Include="Utils\PSAUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

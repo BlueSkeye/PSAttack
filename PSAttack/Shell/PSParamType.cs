@@ -1,10 +1,8 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-namespace PSAttack.PSAttackShell
+namespace PSAttack.Shell
 {
     [TypeConverter(typeof(PSParamType.PSParamObject))]
     public class PSParamType
@@ -28,33 +26,27 @@ namespace PSAttack.PSAttackShell
                 values.TryGetValue(name, out val);
                 return val;
             }
-            set
-            {
-                values.Remove(name);
-            }
+            set { values.Remove(name); }
         }
 
         private class PSParamObject : ExpandableObjectConverter
         {
             public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext context, object value, Attribute[] attributes)
             {
-                var props = base.GetProperties(context, value, attributes);
+                PropertyDescriptorCollection props = base.GetProperties(context, value, attributes);
                 PSParamType parm = value as PSParamType;
                 List<PSParameter> psprops = null;
                 int propcnt = props.Count;
-                if (parm != null)
-                {
+                if (null != parm) {
                     psprops = parm.Properties;
                     propcnt += psprops.Count;
                 }
                 PropertyDescriptor[] psdescs = new PropertyDescriptor[propcnt];
                 props.CopyTo(psdescs, 0);
 
-                if (psprops != null)
-                {
+                if (null != psprops) {
                     int idx = props.Count;
-                    foreach (PSParameter psparam in psprops)
-                    {
+                    foreach (PSParameter psparam in psprops) {
                         psdescs[idx++] = new PSParamDescriptor(psparam);
                     }
                 }
@@ -66,7 +58,8 @@ namespace PSAttack.PSAttackShell
         {
             private readonly PSParameter psparam;
 
-            public PSParamDescriptor(PSParameter psparam) : base(psparam.Name, null)
+            public PSParamDescriptor(PSParameter psparam)
+                : base(psparam.Name, null)
             {
                 this.psparam = psparam;
             }

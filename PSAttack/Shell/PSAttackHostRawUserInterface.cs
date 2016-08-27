@@ -1,60 +1,32 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation.Host;
-using System.Text;
-// using System.Threading.Tasks;
 
-namespace PSAttack.PSAttackShell
+namespace PSAttack.Shell
 {
-    class PSAttackRawUserInterface : PSHostRawUserInterface
+    internal class PSAttackRawUserInterface : PSHostRawUserInterface
     {
         public override ConsoleColor BackgroundColor
         {
-            get
-            {
-                return System.ConsoleColor.DarkBlue;
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { return ConsoleColor.DarkBlue; }
+            set { throw new NotImplementedException(); }
         }
 
         public override Size BufferSize
         {
-            get
-            {
-                return new System.Management.Automation.Host.Size(Console.BufferWidth, Console.BufferHeight);
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { return new Size(Console.BufferWidth, Console.BufferHeight); }
+            set { throw new NotImplementedException(); }
         }
 
         public override Coordinates CursorPosition
         {
-            get
-            {
-                throw new NotImplementedException();
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
         }
 
         public override int CursorSize
         {
-            get
-            {
-                throw new NotImplementedException();
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
         }
 
         public override void FlushInputBuffer()
@@ -64,14 +36,8 @@ namespace PSAttack.PSAttackShell
 
         public override ConsoleColor ForegroundColor
         {
-            get
-            {
-                return ConsoleColor.Gray;
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { return ConsoleColor.Gray; }
+            set { throw new NotImplementedException(); }
         }
 
         public override BufferCell[,] GetBufferContents(Rectangle rectangle)
@@ -116,38 +82,20 @@ namespace PSAttack.PSAttackShell
 
         public override Coordinates WindowPosition
         {
-            get
-            {
-                throw new NotImplementedException();
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
         }
 
         public override Size WindowSize
         {
-            get
-            {
-                throw new NotImplementedException();
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
         }
 
         public override string WindowTitle
         {
-            get
-            {
-                return "PSATTACK!!";
-            }
-            set
-            {
-                throw new NotImplementedException();
-            }
+            get { return "PSATTACK!!"; }
+            set { throw new NotImplementedException(); }
         }
     }
 }
