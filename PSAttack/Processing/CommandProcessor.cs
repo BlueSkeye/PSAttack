@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Security.Principal;
@@ -37,7 +36,7 @@ namespace PSAttack.Processing
                             if (_state.keyInfo.Key == ConsoleKey.Backspace) {
                                 _display.MoveCursor(false);
                             }
-                            displayCmd = _display.DisplayedCommand.ToList();
+                            displayCmd = new List<char>(_display.DisplayedCommand);
                             int relativeCursorPos = _display.RelativeCmdCursorPos;
                             displayCmd.RemoveAt(relativeCursorPos);
                             _display.SetDisplayedCommand(new string(displayCmd.ToArray()));
