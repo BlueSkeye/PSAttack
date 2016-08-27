@@ -7,9 +7,10 @@ namespace PSAttack.Processing
 {
     internal class TabExpander
     {
-        internal TabExpander(CommandProcessor processor)
+        internal TabExpander(CommandProcessor processor, IDisplay display)
         {
             _processor = processor;
+            _display = display;
         }
 
         internal AttackState Process(AttackState attackState)
@@ -73,7 +74,7 @@ namespace PSAttack.Processing
                 }
                 // reconstruct display cmd from components
                 string completedCmd = string.Empty;
-                int cursorPos = attackState.promptLength;
+                int cursorPos = _display.PromptLength;
                 for (int i = 0; i < attackState.cmdComponents.Count(); i++) {
                     if (i == attackState.cmdComponentsIndex) {
                         completedCmd += separator + result;
@@ -81,8 +82,7 @@ namespace PSAttack.Processing
                     }
                     else { completedCmd += attackState.cmdComponents[i].Contents; }
                 }
-                attackState.DisplayedCommand = completedCmd.TrimStart();
-                attackState.cursorPos = cursorPos;
+                _display.SetDisplayedCommand(completedCmd.TrimStart(), cursorPos);
             }
             return attackState;
         }
@@ -111,12 +111,12 @@ namespace PSAttack.Processing
         }
 
         // This function splits text on the command line up and identifies each component
-        private static List<DisplayCmdComponent> dislayCmdComponents(AttackState attackState)
+        private List<DisplayCmdComponent> dislayCmdComponents(AttackState attackState)
         {
             List<DisplayCmdComponent> results = new List<DisplayCmdComponent>();
             int index = 0;
-            int cmdLength = attackState.promptLength + 1;
-            foreach (string item in Regex.Split(attackState.DisplayedCommand, @"(?=[\s])")) {
+            int cmdLength = _display.PromptLength + 1;
+            foreach (string item in Regex.Split(_display.DisplayedCommand, @"(?=[\s])")) {
                 string itemType = seedIdentification(item);
                 DisplayCmdComponent itemSeed = new DisplayCmdComponent() {
                     Index = index,
@@ -124,7 +124,7 @@ namespace PSAttack.Processing
                     Type = itemType
                 };
                 cmdLength += item.Length;
-                if ((cmdLength > attackState.cursorPos) && (attackState.cmdComponentsIndex == -1)) {
+                if ((cmdLength > _display.CursorPosition) && (attackState.cmdComponentsIndex == -1)) {
                     attackState.cmdComponentsIndex = index;
                 }
                 if (itemType == "path" || itemType == "unknown") {
@@ -179,5 +179,6 @@ namespace PSAttack.Processing
         }
 
         private CommandProcessor _processor;
+        private IDisplay _display;
     }
 }

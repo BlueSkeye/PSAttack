@@ -16,8 +16,8 @@ namespace PSAttack.Processing
         internal CommandProcessor()
         {
             _state = new AttackState();
-            _tabExpander = new TabExpander(this);
             _display = new Display(this);
+            _tabExpander = new TabExpander(this, _display);
             Initialize();
         }
         
@@ -26,28 +26,28 @@ namespace PSAttack.Processing
             try {
                 _state.keyInfo = keyInfo;
                 _state.output = null;
-                int relativePos = _state.RelativeCursorPosition;
-                int cmdLength = _state.DisplayedCommand.Length;
+                int relativePos = _display.RelativeCursorPosition;
+                int cmdLength = _display.DisplayedCommand.Length;
                 List<char> displayCmd;
                 switch (_state.keyInfo.Key) {
                     case ConsoleKey.Backspace:
                     case ConsoleKey.Delete:
                         _state.ClearLoop();
-                        if (_state.DisplayedCommand != "" && _state.RelativeCursorPosition > 0) {
+                        if (_display.DisplayedCommand != "" && _display.RelativeCursorPosition > 0) {
                             if (_state.keyInfo.Key == ConsoleKey.Backspace) {
-                                _state.cursorPos -= 1;
+                                _display.MoveCursor(false);
                             }
-                            displayCmd = _state.DisplayedCommand.ToList();
-                            int relativeCursorPos = _state.relativeCmdCursorPos();
+                            displayCmd = _display.DisplayedCommand.ToList();
+                            int relativeCursorPos = _display.RelativeCmdCursorPos;
                             displayCmd.RemoveAt(relativeCursorPos);
-                            _state.DisplayedCommand = new string(displayCmd.ToArray());
+                            _display.SetDisplayedCommand(new string(displayCmd.ToArray()));
                         }
                         return;
                     case ConsoleKey.Home:
-                        _state.cursorPos = _state.promptLength;
+                        _display.HomeCursor();
                         return;
                     case ConsoleKey.End:
-                        _state.cursorPos = _state.promptLength + _state.DisplayedCommand.Length;
+                        _display.SetCursorAfterCommand();
                         return;
                     case ConsoleKey.UpArrow:
                     case ConsoleKey.DownArrow:
@@ -55,21 +55,21 @@ namespace PSAttack.Processing
                         return;
                     case ConsoleKey.LeftArrow:
                         // TODO: Fix arrows navigating between wrapped command lines
-                        if (_state.relativeCmdCursorPos() > 0) {
+                        if (0 < _display.RelativeCmdCursorPos) {
                             _state.ClearLoop();
-                            _state.cursorPos -= 1;
+                            _display.MoveCursor(false);
                         }
                         return;
                     case ConsoleKey.RightArrow:
-                        if (_state.relativeCmdCursorPos() < _state.DisplayedCommand.Length) {
+                        if (_display.RelativeCmdCursorPos < _display.DisplayedCommand.Length) {
                             _state.ClearLoop();
-                            _state.cursorPos += 1;
+                            _display.MoveCursor(true);
                         }
                         return;
                     case ConsoleKey.Enter:
                         Console.WriteLine();
                         _state.ClearLoop();
-                        _state.Command = _state.DisplayedCommand;
+                        _state.Command = _display.DisplayedCommand;
                         // don't add blank lines to history
                         if (string.Empty != _state.Command) {
                             _state.history.Add(_state.Command);
@@ -79,7 +79,7 @@ namespace PSAttack.Processing
                         }
                         if (_state.Command == "clear") {
                             Console.Clear();
-                            _state.DisplayedCommand = "";
+                            _display.SetDisplayedCommand(string.Empty);
                             _display.PrintPrompt(_state);
                         }
                         // TODO: Make this better.
@@ -90,11 +90,12 @@ namespace PSAttack.Processing
                         // assume that we just want to execute whatever makes it here.
                         else {
                             ExecutePSCommand();
-                            _state.DisplayedCommand = "";
+                            _display.SetDisplayedCommand(string.Empty);
                             _display.Output(_state);
                         }
                         // clear out cmd related stuff from state
-                        _state.ClearIO(display: true);
+                        _state.ClearIO();
+                        _display.Reset();
                         return;
                     case ConsoleKey.Tab:
                         _tabExpander.Process(_state);
@@ -102,13 +103,7 @@ namespace PSAttack.Processing
                     default:
                         // if nothing matched, lets assume its a character and add it to displayCmd
                         _state.ClearLoop();
-                        // figure out where to insert the typed character
-                        displayCmd = _state.DisplayedCommand.ToList();
-                        int relativeCmdCursorPos = _state.relativeCmdCursorPos();
-                        int cmdInsertPos = _state.cursorPos - _state.promptLength;
-                        displayCmd.Insert(_state.cursorPos - _state.promptLength, _state.keyInfo.KeyChar);
-                        _state.DisplayedCommand = new string(displayCmd.ToArray());
-                        _state.cursorPos += 1;
+                        _display.InsertCommandCharacter(_state.keyInfo.KeyChar);
                         return;
                 }
             }
@@ -129,22 +124,22 @@ namespace PSAttack.Processing
                     case ConsoleKey.UpArrow:
                         if (0 < _state.loopPos) {
                             _state.loopPos -= 1;
-                            _state.DisplayedCommand = _state.history[_state.loopPos];
+                            _display.SetDisplayedCommand(_state.history[_state.loopPos]);
                         }
                         break;
                     case ConsoleKey.DownArrow:
                         if ((_state.loopPos + 1) > (_state.history.Count - 1)) {
-                            _state.DisplayedCommand = "";
+                            _display.SetDisplayedCommand(string.Empty);
                         }
                         else {
                             _state.loopPos += 1;
-                            _state.DisplayedCommand = _state.history[_state.loopPos];
+                            _display.SetDisplayedCommand(_state.history[_state.loopPos]);
                         }
                         break;
                     default:
                         break;
                 }
-                _state.cursorPos = _state.endOfDisplayCmdPos();
+                _display.SetCursorAfterDisplayedCommand();
             }
             return;
         }
@@ -271,7 +266,7 @@ namespace PSAttack.Processing
                     _display.Exception(e.Message);
                 }
             }
-            //Clear out command so it doesn't get echo'd out to console again.
+            // Clear out command so it doesn't get echo'd out to console again.
             _state.ClearIO();
             if (null == _state.loopType) {
                 _state.SetCommandComplete();
