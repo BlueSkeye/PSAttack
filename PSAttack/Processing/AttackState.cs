@@ -11,16 +11,26 @@ namespace PSAttack.Processing
     {
         public string Contents { get; set; }
         public int Index { get; set; }
-        public string Type { get; set; }
+        public CommponentType Type { get; set; }
+
+        public enum CommponentType
+        {
+            Undefined,
+            Command,
+            History,
+            Parameter,
+            Path,
+            Variable,
+        }
     }
 
     internal class AttackState
     {
-        public AttackState()
+        private AttackState()
         {
             Runspace runspace = RunspaceFactory.CreateRunspace(new PSAttackHost());
             runspace.Open();
-            this.runspace = runspace;
+            Runspace = runspace;
             this.history = new List<string>();
             this.decryptedStore = new Dictionary<string, string>();
             // hack to keep cmd from being null. others parts of psa don't appreciate that.
@@ -49,7 +59,7 @@ namespace PSAttack.Processing
         // we set a loopPos for when we're in a tab-complete loop
         public int loopPos { get; set; }
         // loop states
-        public string loopType { get; set; }
+        public DisplayCmdComponent.CommponentType loopType { get; set; }
         // ouput is what's print to screen
         public string output { get; set; }
 
@@ -58,7 +68,7 @@ namespace PSAttack.Processing
         // returns total length of display cmd + prompt. Used to check for text wrap in 
         // so we know what to do with our cursor
         // Powershell runspace and host
-        public Runspace runspace { get; set; }
+        public Runspace Runspace { get; set; }
 
         // clear out cruft from working with commands
         public void ClearIO()
@@ -72,12 +82,19 @@ namespace PSAttack.Processing
         // clear out cruft from autocomplete loops
         public void ClearLoop()
         {
-            this.loopType = null;
-            this.results = null;
-            this.displayCmdSeed = null;
-            this.loopPos = 0;
-            this.cmdComponents = null;
-            this.cmdComponentsIndex = -1;
+            loopType = DisplayCmdComponent.CommponentType.Undefined;
+            results = null;
+            displayCmdSeed = null;
+            loopPos = 0;
+            cmdComponents = null;
+            cmdComponentsIndex = -1;
+        }
+
+        internal static AttackState Create(out Runspace runspace)
+        {
+            AttackState result = new AttackState();
+            runspace = result.Runspace;
+            return result;
         }
 
         internal void SetCommandComplete()

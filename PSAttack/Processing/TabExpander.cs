@@ -15,26 +15,26 @@ namespace PSAttack.Processing
 
         internal AttackState Process(AttackState attackState)
         {
-            if (null == attackState.loopType) {
+            if (DisplayCmdComponent.CommponentType.Undefined == attackState.loopType) {
                 attackState.cmdComponents = dislayCmdComponents(attackState);
                 // route to appropriate autcomplete handler
                 switch (attackState.loopType = attackState.cmdComponents[attackState.cmdComponentsIndex].Type) {
-                    case "param":
-                        this.paramAutoComplete(attackState);
+                    case DisplayCmdComponent.CommponentType.Parameter:
+                        paramAutoComplete(attackState);
                         break;
-                    case "variable":
-                        this.variableAutoComplete(attackState);
+                    case DisplayCmdComponent.CommponentType.Variable:
+                        variableAutoComplete(attackState);
                         break;
-                    case "path":
-                        this.pathAutoComplete(attackState);
+                    case DisplayCmdComponent.CommponentType.Path:
+                        pathAutoComplete(attackState);
                         break;
                     default:
-                        this.cmdAutoComplete(attackState);
+                        cmdAutoComplete(attackState);
                         break;
                 }
             }
             // If we're already in an autocomplete loop, increment loopPos appropriately
-            else if (null != attackState.loopType) {
+            else {
                 if (attackState.keyInfo.Modifiers == ConsoleModifiers.Shift) {
                     attackState.loopPos -= 1;
                     // loop around if we're at the beginning
@@ -56,15 +56,15 @@ namespace PSAttack.Processing
                 string separator = " ";
                 string result;
                 switch (attackState.loopType) {
-                    case "param":
+                    case DisplayCmdComponent.CommponentType.Parameter:
                         separator = " -";
                         result = attackState.results[attackState.loopPos].ToString();
                         break;
-                    case "variable":
+                    case DisplayCmdComponent.CommponentType.Variable:
                         separator = " $";
                         result = attackState.results[attackState.loopPos].Members["Name"].Value.ToString();
                         break;
-                    case "path":
+                    case DisplayCmdComponent.CommponentType.Path:
                         separator = " ";
                         result = "\"" + attackState.results[attackState.loopPos].Members["FullName"].Value.ToString() + "\"";
                         break;
@@ -74,7 +74,7 @@ namespace PSAttack.Processing
                 }
                 // reconstruct display cmd from components
                 string completedCmd = string.Empty;
-                int cursorPos = _display.PromptLength;
+                int cursorPos = _display.Prompt.Length;
                 for (int i = 0; i < attackState.cmdComponents.Count(); i++) {
                     if (i == attackState.cmdComponentsIndex) {
                         completedCmd += separator + result;
@@ -82,66 +82,55 @@ namespace PSAttack.Processing
                     }
                     else { completedCmd += attackState.cmdComponents[i].Contents; }
                 }
-                _display.SetDisplayedCommand(completedCmd.TrimStart(), cursorPos);
+                _display.SetDisplayedCommand(completedCmd.TrimStart());
             }
             return attackState;
         }
 
         // This function is used to identify chunks of autocomplete text to determine if it's a variable, path, cmdlet, etc
         // May eventually have to move this to regex to make matches more betterer.
-        private static string seedIdentification(string seed)
+        private static DisplayCmdComponent.CommponentType seedIdentification(string seed)
         {
-            string seedType = "cmd";
-            if (seed.Contains(" -")) {
-                seedType = "param";
-            }
-            else if (seed.Contains("$")) {
-                seedType = "variable";
-            }
-            else if (seed.Contains("\\") || seed.Contains(":")) {
-                seedType = "path";
-            }
+            if (seed.Contains(" -")) { return DisplayCmdComponent.CommponentType.Parameter; }
+            if (seed.Contains("$")) { return DisplayCmdComponent.CommponentType.Variable; }
+            if (seed.Contains("\\") || seed.Contains(":")) { return DisplayCmdComponent.CommponentType.Path; }
             // This causes an issue and I can't remember why I added this.. leaving it commented 
             // for now in case I need to come back to it (2016/08/21)
-            //else if (seed.Length < 4 || seed.First() == ' ')
-            //{
-            //    seedType = "unknown";
-            //}
-            return seedType;
+            //else if (seed.Length < 4 || seed.First() == ' ') { seedType = "unknown"; }
+            return DisplayCmdComponent.CommponentType.Command;
         }
 
         // This function splits text on the command line up and identifies each component
         private List<DisplayCmdComponent> dislayCmdComponents(AttackState attackState)
         {
-            List<DisplayCmdComponent> results = new List<DisplayCmdComponent>();
+            List<DisplayCmdComponent> result = new List<DisplayCmdComponent>();
             int index = 0;
-            int cmdLength = _display.PromptLength + 1;
+            int cmdLength = _display.Prompt.Length + 1;
             foreach (string item in Regex.Split(_display.DisplayedCommand, @"(?=[\s])")) {
-                string itemType = seedIdentification(item);
                 DisplayCmdComponent itemSeed = new DisplayCmdComponent() {
                     Index = index,
                     Contents = item,
-                    Type = itemType
+                    Type = seedIdentification(item)
                 };
                 cmdLength += item.Length;
                 if ((cmdLength > _display.CursorPosition) && (attackState.cmdComponentsIndex == -1)) {
                     attackState.cmdComponentsIndex = index;
                 }
-                if (itemType == "path" || itemType == "unknown") {
-                    if (results.Last().Type == "path") {
-                        results.Last().Contents +=  itemSeed.Contents;
-                    }
-                    else {
-                        results.Add(itemSeed);
-                        index++;
-                    }
+                switch (itemSeed.Type) {
+                    case DisplayCmdComponent.CommponentType.Path:
+                    case DisplayCmdComponent.CommponentType.Undefined:
+                        if (DisplayCmdComponent.CommponentType.Path == result.Last().Type) {
+                            result.Last().Contents += itemSeed.Contents;
+                            continue;
+                        }
+                        break;
+                    default:
+                        break;
                 }
-                else {
-                    results.Add(itemSeed);
-                    index++;
-                }
+                result.Add(itemSeed);
+                index++;
             }
-            return results;
+            return result;
         }
 
         // PARAMETER AUTOCOMPLETE
@@ -149,8 +138,8 @@ namespace PSAttack.Processing
         {
             int index = attackState.cmdComponentsIndex;
             string paramSeed = attackState.cmdComponents[index].Contents.Replace(" -", "");
-            string result = string.Empty; 
-            while ("cmd" != result) {
+            DisplayCmdComponent.CommponentType result = DisplayCmdComponent.CommponentType.Undefined;
+            while (DisplayCmdComponent.CommponentType.Command != result) {
                 index -= 1;
                 result = attackState.cmdComponents[index].Type;
             }

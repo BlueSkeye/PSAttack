@@ -9,8 +9,8 @@ namespace PSAttack.Processing
     {
         int CursorPosition { get; }
         string DisplayedCommand { get; }
-        int PromptLength { get; }
+        string Prompt { get; }
 
-        void SetDisplayedCommand(string command, int? cursorPosition = null);
+        void SetDisplayedCommand(string command);
     }
 }

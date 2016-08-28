@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using PSAttack.Shell;
 
 namespace PSAttack.Processing
@@ -9,8 +8,10 @@ namespace PSAttack.Processing
         internal Display(CommandProcessor processor)
         {
             _processor = processor;
-            CursorPosition = PromptLength;
+            Prompt = _processor.CurrentPath + PromptSuffix;
+            CursorPosition = Prompt.Length;
             DisplayedCommand = string.Empty;
+            return;
         }
 
         internal int ConsoleWrapCount
@@ -25,15 +26,15 @@ namespace PSAttack.Processing
         // return end of displayCmd accounting for prompt
         public int EndOfDisplayCmdPos
         {
-            get { return PromptLength + this.DisplayedCommand.Length; }
+            get { return Prompt.Length + DisplayedCommand.Length; }
         }
 
-        public int PromptLength { get; private set; }
+        public string Prompt { get; private set; }
 
         // return relative cusor pos without prompt
         public int RelativeCmdCursorPos
         {
-            get { return _cursorPos - PromptLength; }
+            get { return _cursorPos - Prompt.Length; }
         }
 
         // return cursor pos ignoring window wrapping
@@ -50,17 +51,10 @@ namespace PSAttack.Processing
 
         private int TotalDisplayLength
         {
-            get { return PromptLength + this.DisplayedCommand.Length; }
+            get { return Prompt.Length + DisplayedCommand.Length; }
         }
 
-        private string CreatePrompt(AttackState attackState)
-        {
-            string prompt = attackState.runspace.SessionStateProxy.Path.CurrentLocation + PromptSuffix;
-            PromptLength = prompt.Length;
-            return prompt;
-        }
-
-        internal void Exception(string errorMsg)
+        internal void DisplayException(string errorMsg)
         {
             Console.ForegroundColor = PSColors.errorText;
             Console.WriteLine("ERROR: {0}\n", errorMsg);
@@ -82,14 +76,13 @@ namespace PSAttack.Processing
 
         internal void HomeCursor()
         {
-            CursorPosition = this.PromptLength;
+            CursorPosition = Prompt.Length;
         }
 
         internal void InsertCommandCharacter(char candidate)
         {
             // figure out where to insert the typed character
-            this.DisplayedCommand =
-                DisplayedCommand.Insert(CursorPosition - PromptLength, new string(candidate, 1));
+            this.DisplayedCommand = DisplayedCommand.Insert(CursorPosition - Prompt.Length, new string(candidate, 1));
             return;
         }
 
@@ -98,42 +91,36 @@ namespace PSAttack.Processing
             CursorPosition += (forward) ? 1 : -1;
         }
 
-        public void Output(AttackState attackState)
+        internal void Output(bool commandCompleted)
         {
-            if (attackState.IsCommandComplete) { PrintPrompt(attackState); }
-            int currentCusorPos = Console.CursorTop;
-            string prompt = CreatePrompt(attackState);
-
+            if (commandCompleted) { PrintPrompt(); }
             // This is where we juggle things to make sure the cursor ends up where 
             // it's expected to be. I'm sure this could be improved on.
-
             // Clear out typed text after prompt
-            Console.SetCursorPosition(prompt.Length, _promptPos);
-            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(Prompt.Length, _promptPos);
+            int windowWidth = Console.WindowWidth;
+            Console.Write(new string(' ', windowWidth));
 
             // Clear out any lines below the prompt
-            int cursorDiff = this.ConsoleWrapCount;
-            while (0 < cursorDiff) {
+            for (int cursorDiff = ConsoleWrapCount; 0 < cursorDiff; cursorDiff--) {
                 Console.SetCursorPosition(0, _promptPos + cursorDiff);
-                Console.Write(new string(' ', Console.WindowWidth));
-                cursorDiff -= 1;
+                Console.Write(new string(' ', windowWidth));
             }
-            Console.SetCursorPosition(prompt.Length, _promptPos);
+            Console.SetCursorPosition(Prompt.Length, _promptPos);
 
             // Re-print the command
-            Console.Write(this.DisplayedCommand);
+            Console.Write(DisplayedCommand);
             int left;
             int top;
             this.GetCursorPosition(out left, out top);
             Console.SetCursorPosition(left, top);
         }
 
-        internal void PrintPrompt(AttackState attackState)
+        internal void PrintPrompt()
         {
             _promptPos = Console.CursorTop;
-            string prompt = CreatePrompt(attackState);
-            Write(PSColors.prompt, prompt);
-            CursorPosition = prompt.Length;
+            Write(PSColors.prompt, Prompt);
+            CursorPosition = Prompt.Length;
             return;
         }
 
@@ -144,7 +131,7 @@ namespace PSAttack.Processing
 
         internal void SetCursorAfterCommand()
         {
-            CursorPosition = this.PromptLength + this.DisplayedCommand.Length;
+            CursorPosition = Prompt.Length + DisplayedCommand.Length;
         }
 
         internal void SetCursorAfterDisplayedCommand()
@@ -152,9 +139,9 @@ namespace PSAttack.Processing
             CursorPosition = EndOfDisplayCmdPos;
         }
 
-        public void SetDisplayedCommand(string displayed, int? cursorPosition = null)
+        public void SetDisplayedCommand(string displayed)
         {
-            this.DisplayedCommand = displayed;
+            DisplayedCommand = displayed;
         }
 
         internal void Write(ConsoleColor color, string message, params object[] args)

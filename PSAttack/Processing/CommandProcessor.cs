@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Security.Principal;
@@ -14,11 +15,16 @@ namespace PSAttack.Processing
     {
         internal CommandProcessor()
         {
-            _state = new AttackState();
+            Runspace runspace;
+            _state = AttackState.Create(out runspace);
             _display = new Display(this);
             _tabExpander = new TabExpander(this, _display);
+            CurrentPath = runspace.SessionStateProxy.Path.CurrentLocation;
             Initialize();
+            return;
         }
+
+        internal PathInfo CurrentPath { get; private set; }
         
         internal void ProcessKey(ConsoleKeyInfo keyInfo)
         {
@@ -32,7 +38,9 @@ namespace PSAttack.Processing
                     case ConsoleKey.Backspace:
                     case ConsoleKey.Delete:
                         _state.ClearLoop();
-                        if (_display.DisplayedCommand != "" && _display.RelativeCursorPosition > 0) {
+                        if (   (string.Empty!= _display.DisplayedCommand)
+                            && (0 < _display.RelativeCursorPosition))
+                        {
                             if (_state.keyInfo.Key == ConsoleKey.Backspace) {
                                 _display.MoveCursor(false);
                             }
@@ -79,18 +87,18 @@ namespace PSAttack.Processing
                         if (_state.Command == "clear") {
                             Console.Clear();
                             _display.SetDisplayedCommand(string.Empty);
-                            _display.PrintPrompt(_state);
+                            _display.PrintPrompt();
                         }
                         // TODO: Make this better.
                         else if (_state.Command.Contains(".exe")) {
                             ExecutePSCommand("Start-Process -NoNewWindow -Wait " + _state.Command);
-                            _display.Output(_state);
+                            _display.Output(_state.IsCommandComplete);
                         }
                         // assume that we just want to execute whatever makes it here.
                         else {
                             ExecutePSCommand();
                             _display.SetDisplayedCommand(string.Empty);
-                            _display.Output(_state);
+                            _display.Output(_state.IsCommandComplete);
                         }
                         // clear out cmd related stuff from state
                         _state.ClearIO();
@@ -106,15 +114,15 @@ namespace PSAttack.Processing
                         return;
                 }
             }
-            finally { _display.Output(_state); }
+            finally { _display.Output(_state.IsCommandComplete); }
         }
 
         // called when up or down is entered
         private void HandleHistoryKey()
         {
             if (0 < _state.history.Count) {
-                if (null == _state.loopType) {
-                    _state.loopType = "history";
+                if (DisplayCmdComponent.CommponentType.Undefined == _state.loopType) {
+                    _state.loopType = DisplayCmdComponent.CommponentType.History;
                     if (0 == _state.loopPos) {
                         _state.loopPos = _state.history.Count;
                     }
@@ -217,7 +225,7 @@ namespace PSAttack.Processing
             // get build info
             string buildString;
             string attackDate = new StreamReader(assembly.GetManifestResourceStream("PSAttack.Resources.attackDate.txt")).ReadToEnd();
-            Boolean builtWithBuildTool = true;
+            bool builtWithBuildTool = true;
             if (12 < attackDate.Length) {                
                 buildString = "It was custom made by the PS>Attack Build Tool on " + attackDate + "\n"; 
             }
@@ -243,7 +251,7 @@ namespace PSAttack.Processing
             // Display Prompt
             _state.ClearLoop();
             _state.ClearIO();
-            _display.PrintPrompt(_state);
+            _display.PrintPrompt();
             return;
         }
 
@@ -251,7 +259,7 @@ namespace PSAttack.Processing
         internal void ExecutePSCommand(string command = null)
         {
             if (null != command) { _state.Command = command; }
-            using (Pipeline pipeline = _state.runspace.CreatePipeline()) {
+            using (Pipeline pipeline = _runspace.CreatePipeline()) {
                 pipeline.Commands.AddScript(_state.Command);
                 // If we're in an auto-complete loop, we want the PSObjects, not the string from the output of the command
                 // TODO: clean this up
@@ -262,7 +270,7 @@ namespace PSAttack.Processing
                 try { _state.results = pipeline.Invoke(); }
                 catch (Exception e) {
                     _state.results = null;
-                    _display.Exception(e.Message);
+                    _display.DisplayException(e.Message);
                 }
             }
             // Clear out command so it doesn't get echo'd out to console again.
@@ -275,6 +283,7 @@ namespace PSAttack.Processing
 
         private const string ModulePrefix = "PSAttack.Modules.";
         private Display _display;
+        private Runspace _runspace;
         private AttackState _state;
         private TabExpander _tabExpander;
     }
