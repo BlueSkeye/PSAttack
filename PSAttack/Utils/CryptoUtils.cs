@@ -7,36 +7,31 @@ namespace PSAttack.Utils
 {
     internal static class CryptoUtils
     {
-        public static string DecryptString(string text)
+        public static MemoryStream Decrypt(this string text, string password)
         {
-            string key = Properties.Settings.Default.encryptionKey;
-            Rfc2898DeriveBytes derivedKey =
-                new Rfc2898DeriveBytes(key, Encoding.Unicode.GetBytes(key));
-            RijndaelManaged rijndaelCSP = new RijndaelManaged();
-            rijndaelCSP.Key = derivedKey.GetBytes(rijndaelCSP.KeySize / 8);
-            rijndaelCSP.IV = derivedKey.GetBytes(rijndaelCSP.BlockSize / 8);
-            using (ICryptoTransform decryptor = rijndaelCSP.CreateDecryptor()) {
-                byte[] inputbuffer = Convert.FromBase64String(text.Replace("_", "/"));
-                return Encoding.Unicode.GetString(
-                    decryptor.TransformFinalBlock(inputbuffer, 0, inputbuffer.Length));
+            byte[] data = Convert.FromBase64String(text.Replace("_", "/"));
+            using (Stream stream = new MemoryStream(data)) {
+                return stream.Decrypt(password);
             }
         }
 
-        public static MemoryStream DecryptFile(Stream inputStream)
+        public static MemoryStream Decrypt(this Stream inputStream, string password)
         {
             try {
-                string key = Properties.Settings.Default.encryptionKey;
-                byte[] keyBytes = Encoding.Unicode.GetBytes(key);
+                byte[] keyBytes = Encoding.Unicode.GetBytes(password);
 
-                Rfc2898DeriveBytes derivedKey = new Rfc2898DeriveBytes(key, keyBytes);
+                Rfc2898DeriveBytes derivedKey = new Rfc2898DeriveBytes(password, keyBytes);
                 RijndaelManaged rijndaelCSP = new RijndaelManaged();
                 rijndaelCSP.Key = derivedKey.GetBytes(rijndaelCSP.KeySize / 8);
                 rijndaelCSP.IV = derivedKey.GetBytes(rijndaelCSP.BlockSize / 8);
                 ICryptoTransform decryptor = rijndaelCSP.CreateDecryptor();
 
-                using (CryptoStream decryptStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read)) {
+                using (CryptoStream decryptStream =
+                    new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read))
+                {
                     byte[] inputFileData = new byte[(int)inputStream.Length];
-                    try {
+                    try
+                    {
                         return new MemoryStream(
                             Encoding.Unicode.GetBytes(
                                 new StreamReader(decryptStream).ReadToEnd()));

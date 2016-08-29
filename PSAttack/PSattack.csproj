@@ -71,6 +71,8 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Globals.cs" />
+    <Compile Include="IModuleProvider.cs" />
     <Compile Include="Processing\CommandItemType.cs" />
     <Compile Include="Processing\IDisplay.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -79,6 +81,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Processing\TabExpander.cs" />
+    <Compile Include="ResourceBasedModuleProvider.cs" />
     <Compile Include="Shell\PSColors.cs" />
     <Compile Include="Processing\Display.cs" />
     <Compile Include="Processing\CommandItem.cs" />

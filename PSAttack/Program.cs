@@ -10,7 +10,8 @@ namespace PSAttack
             if (_decryptModules) {
                 throw new NotImplementedException();
             }
-            CommandProcessor processor = new CommandProcessor();
+            CommandProcessor processor =
+                new CommandProcessor(ResourceBasedModuleProvider.Instance);
             while (true) { processor.ProcessKey(Console.ReadKey()); }
         }
 

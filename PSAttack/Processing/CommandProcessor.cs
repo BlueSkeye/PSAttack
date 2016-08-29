@@ -6,19 +6,18 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Security.Principal;
-using System.Text;
 using PSAttack.Shell;
-using PSAttack.Utils;
 
 namespace PSAttack.Processing
 {
     internal class CommandProcessor
     {
-        internal CommandProcessor()
+        internal CommandProcessor(IModuleProvider moduleProvider)
         {
+            _moduleProvider = moduleProvider;
             _runspace = RunspaceFactory.CreateRunspace(new PSAttackHost());
             _runspace.Open();
-            _decryptedStore = new Dictionary<string, string>();
+            // _decryptedStore = new Dictionary<string, string>();
             _display = new Display(this);
             _tabExpander = new TabExpander(this, _display);
             CurrentPath = _runspace.SessionStateProxy.Path.CurrentLocation;
@@ -87,13 +86,9 @@ namespace PSAttack.Processing
             return;
         }
 
-        private void ImportModule(Stream moduleStream)
+        private void ImportModule(string moduleText)
         {
-            try {
-                using (MemoryStream decMem = CryptoUtils.DecryptFile(moduleStream)) {
-                    this.ExecutePSCommand(Encoding.Unicode.GetString(decMem.ToArray()));
-                }
-            }
+            try { ExecutePSCommand(moduleText); }
             catch (Exception e) {
                 _display.Write(ConsoleColor.Red, Strings.moduleLoadError, e.Message);
             }
@@ -103,35 +98,21 @@ namespace PSAttack.Processing
         {
             DisplayRandomBanner();
 
-            // Get Encrypted Values
-            Assembly assembly = Assembly.GetExecutingAssembly();
-            Stream valueStream = assembly.GetManifestResourceStream("PSAttack.Resources." + Properties.Settings.Default.valueStore);
-            MemoryStream valueStore = CryptoUtils.DecryptFile(valueStream);
-            string valueStoreStr = Encoding.Unicode.GetString(valueStore.ToArray());
-
-            foreach (string value in valueStoreStr.Replace("\r", "").Split('\n')) {
-                if (string.IsNullOrEmpty(value)) { continue; }
-                string[] entry = value.Split('|');
-                _decryptedStore.Add(entry[0], entry[1]);
-            }
-
             // amsi bypass (thanks matt!!)
             if (9 < Environment.OSVersion.Version.Major) {
-                try { ExecutePSCommand(_decryptedStore["amsiBypass"]); }
+                try {
+                    ExecutePSCommand(_moduleProvider.GetProperty("amsiBypass"));
+                    Console.WriteLine("ASMSI bypass successfully enabled.");
+                }
                 catch { Console.WriteLine("Could not run AMSI bypass."); }
             }
 
-            // Decrypt modules
-            foreach (string resource in assembly.GetManifestResourceNames()) {
-                if (!resource.Contains(ModulePrefix)) { continue; }
-                Console.ForegroundColor = PSColors.loadingText;
-                Console.WriteLine("Decrypting: {0}",
-                    CryptoUtils.DecryptString(resource.Replace(ModulePrefix, string.Empty)));
-                this.ImportModule(assembly.GetManifestResourceStream(resource));
+            foreach (string moduleName in _moduleProvider.ResourceNames()) {
+                ImportModule(_moduleProvider.GetModule(moduleName));
             }
 
             // Setup PS env
-            ExecutePSCommand(_decryptedStore["setExecutionPolicy"]);
+            ExecutePSCommand(_moduleProvider.GetProperty("setExecutionPolicy"));
 
             // check for admin 
             bool isAdmin = false;
@@ -153,6 +134,7 @@ namespace PSAttack.Processing
             Console.Clear();
 
             // get build info
+            Assembly assembly = Assembly.GetExecutingAssembly();
             string buildString;
             string attackDate = new StreamReader(assembly.GetManifestResourceStream("PSAttack.Resources.attackDate.txt")).ReadToEnd();
             bool builtWithBuildTool = true;
@@ -335,15 +317,15 @@ namespace PSAttack.Processing
             _tabExpander.Reset();
         }
 
-        private const string ModulePrefix = "PSAttack.Modules.";
         private bool _commandCompleted;
         private List<string> _commandHistory = new List<string>();
         private int _commandHistoryPosition;
         // When PSAttack is built an encrypted CSV is generated containing data that we 
         // don't want to touch disk. That data is stored here as a dict 
-        private Dictionary<string, string> _decryptedStore;
+        // private Dictionary<string, string> _decryptedStore;
         private Display _display;
         private CommandItemType _loopType;
+        private IModuleProvider _moduleProvider;
         private Collection<PSObject> _results { get; set; }
         private Runspace _runspace;
         private TabExpander _tabExpander;
