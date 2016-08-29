@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Management.Automation;
 using System.Text.RegularExpressions;
 
 namespace PSAttack.Processing
@@ -13,113 +14,140 @@ namespace PSAttack.Processing
             _display = display;
         }
 
-        internal AttackState Process(AttackState attackState)
+        private CommandItem CurrentComponent
         {
-            if (DisplayCmdComponent.CommponentType.Undefined == attackState.loopType) {
-                attackState.cmdComponents = dislayCmdComponents(attackState);
+            get { return _cmdComponents[_cmdComponentsIndex]; }
+        }
+
+        // COMMAND AUTOCOMPLETE
+        private void AutoCompleteCommand()
+        {
+            _processor.ExecutePSCommand("Get-Command " + CurrentComponent.Contents + "*");
+        }
+
+        // PARAMETER AUTOCOMPLETE
+        private void AutoCompleteParameter()
+        {
+            int index = _cmdComponentsIndex;
+            string paramSeed = _cmdComponents[index].Contents.Replace(" -", "");
+            CommandItemType result = CommandItemType.Undefined;
+            while (CommandItemType.Command != result) {
+                result = _cmdComponents[--index].Type;
+            }
+            _processor.ExecutePSCommand("(Get-Command " +
+                _cmdComponents[index].Contents + ").Parameters.Keys | Where{$_ -like '" + paramSeed + "*'}");
+            return;
+        }
+
+        // PATH AUTOCOMPLETE
+        private void AutoCompletePath()
+        {
+            Console.WriteLine(_processor.Command);
+            _processor.ExecutePSCommand("Get-ChildItem \"" + 
+                CurrentComponent.Contents.Replace("\"", "").Trim() + "*\"");
+        }
+
+        // VARIABLE AUTOCOMPLETE
+        private void AutoCompleteVariable()
+        {
+            _processor.ExecutePSCommand("Get-Variable " +
+                CurrentComponent.Contents.Replace("$", "") + "*");
+        }
+
+        internal void Process(ConsoleKeyInfo keyInfo, ref CommandItemType loopType)
+        {
+            if (CommandItemType.Undefined == loopType) {
+                _cmdComponents = dislayCmdComponents();
                 // route to appropriate autcomplete handler
-                switch (attackState.loopType = attackState.cmdComponents[attackState.cmdComponentsIndex].Type) {
-                    case DisplayCmdComponent.CommponentType.Parameter:
-                        paramAutoComplete(attackState);
+                switch (loopType = CurrentComponent.Type) {
+                    case CommandItemType.Parameter:
+                        AutoCompleteParameter();
                         break;
-                    case DisplayCmdComponent.CommponentType.Variable:
-                        variableAutoComplete(attackState);
+                    case CommandItemType.Variable:
+                        AutoCompleteVariable();
                         break;
-                    case DisplayCmdComponent.CommponentType.Path:
-                        pathAutoComplete(attackState);
+                    case CommandItemType.Path:
+                        AutoCompletePath();
                         break;
                     default:
-                        cmdAutoComplete(attackState);
+                        AutoCompleteCommand();
                         break;
                 }
             }
             // If we're already in an autocomplete loop, increment loopPos appropriately
             else {
-                if (attackState.keyInfo.Modifiers == ConsoleModifiers.Shift) {
-                    attackState.loopPos -= 1;
-                    // loop around if we're at the beginning
-                    if (0 > attackState.loopPos) {
-                        attackState.loopPos = attackState.results.Count - 1;
-                    }
-                }
-                else {
-                    attackState.loopPos += 1;
-                    // loop around if we reach the end
-                    if (attackState.loopPos >= attackState.results.Count) {
-                        attackState.loopPos = 0;
-                    }
-                }
+                _processor.MoveCurrentHistoryPosition(ConsoleModifiers.Shift == keyInfo.Modifiers);
             }
 
             // if we have results, format them and return them
-            if (0 < attackState.results.Count) {
+            if (_processor.HasResults) {
                 string separator = " ";
                 string result;
-                switch (attackState.loopType) {
-                    case DisplayCmdComponent.CommponentType.Parameter:
+                PSObject currentObject = _processor.CurrentResult;
+                switch (loopType) {
+                    case CommandItemType.Parameter:
                         separator = " -";
-                        result = attackState.results[attackState.loopPos].ToString();
+                        result = currentObject.ToString();
                         break;
-                    case DisplayCmdComponent.CommponentType.Variable:
+                    case CommandItemType.Variable:
                         separator = " $";
-                        result = attackState.results[attackState.loopPos].Members["Name"].Value.ToString();
+                        result = currentObject.Members["Name"].Value.ToString();
                         break;
-                    case DisplayCmdComponent.CommponentType.Path:
+                    case CommandItemType.Path:
                         separator = " ";
-                        result = "\"" + attackState.results[attackState.loopPos].Members["FullName"].Value.ToString() + "\"";
+                        result = "\"" + currentObject.Members["FullName"].Value.ToString() + "\"";
                         break;
                     default:
-                        result = attackState.results[attackState.loopPos].BaseObject.ToString();
+                        result = currentObject.BaseObject.ToString();
                         break;
                 }
                 // reconstruct display cmd from components
                 string completedCmd = string.Empty;
                 int cursorPos = _display.Prompt.Length;
-                for (int i = 0; i < attackState.cmdComponents.Count(); i++) {
-                    if (i == attackState.cmdComponentsIndex) {
+                for (int i = 0; i < _cmdComponents.Count(); i++) {
+                    if (i == _cmdComponentsIndex) {
                         completedCmd += separator + result;
                         cursorPos += completedCmd.TrimStart().Length;
                     }
-                    else { completedCmd += attackState.cmdComponents[i].Contents; }
+                    else { completedCmd += _cmdComponents[i].Contents; }
                 }
                 _display.SetDisplayedCommand(completedCmd.TrimStart());
             }
-            return attackState;
+            return;
         }
 
         // This function is used to identify chunks of autocomplete text to determine if it's a variable, path, cmdlet, etc
         // May eventually have to move this to regex to make matches more betterer.
-        private static DisplayCmdComponent.CommponentType seedIdentification(string seed)
+        private static CommandItemType seedIdentification(string seed)
         {
-            if (seed.Contains(" -")) { return DisplayCmdComponent.CommponentType.Parameter; }
-            if (seed.Contains("$")) { return DisplayCmdComponent.CommponentType.Variable; }
-            if (seed.Contains("\\") || seed.Contains(":")) { return DisplayCmdComponent.CommponentType.Path; }
+            if (seed.Contains(" -")) { return CommandItemType.Parameter; }
+            if (seed.Contains("$")) { return CommandItemType.Variable; }
+            if (seed.Contains("\\") || seed.Contains(":")) { return CommandItemType.Path; }
             // This causes an issue and I can't remember why I added this.. leaving it commented 
             // for now in case I need to come back to it (2016/08/21)
             //else if (seed.Length < 4 || seed.First() == ' ') { seedType = "unknown"; }
-            return DisplayCmdComponent.CommponentType.Command;
+            return CommandItemType.Command;
         }
 
         // This function splits text on the command line up and identifies each component
-        private List<DisplayCmdComponent> dislayCmdComponents(AttackState attackState)
+        private List<CommandItem> dislayCmdComponents()
         {
-            List<DisplayCmdComponent> result = new List<DisplayCmdComponent>();
+            List<CommandItem> result = new List<CommandItem>();
             int index = 0;
             int cmdLength = _display.Prompt.Length + 1;
             foreach (string item in Regex.Split(_display.DisplayedCommand, @"(?=[\s])")) {
-                DisplayCmdComponent itemSeed = new DisplayCmdComponent() {
-                    Index = index,
+                CommandItem itemSeed = new CommandItem() {
                     Contents = item,
                     Type = seedIdentification(item)
                 };
                 cmdLength += item.Length;
-                if ((cmdLength > _display.CursorPosition) && (attackState.cmdComponentsIndex == -1)) {
-                    attackState.cmdComponentsIndex = index;
+                if ((cmdLength > _display.CursorPosition) && (-1 == _cmdComponentsIndex)) {
+                    _cmdComponentsIndex = index;
                 }
                 switch (itemSeed.Type) {
-                    case DisplayCmdComponent.CommponentType.Path:
-                    case DisplayCmdComponent.CommponentType.Undefined:
-                        if (DisplayCmdComponent.CommponentType.Path == result.Last().Type) {
+                    case CommandItemType.Path:
+                    case CommandItemType.Undefined:
+                        if (CommandItemType.Path == result.Last().Type) {
                             result.Last().Contents += itemSeed.Contents;
                             continue;
                         }
@@ -133,40 +161,16 @@ namespace PSAttack.Processing
             return result;
         }
 
-        // PARAMETER AUTOCOMPLETE
-        private void paramAutoComplete(AttackState attackState)
+        internal void Reset()
         {
-            int index = attackState.cmdComponentsIndex;
-            string paramSeed = attackState.cmdComponents[index].Contents.Replace(" -", "");
-            DisplayCmdComponent.CommponentType result = DisplayCmdComponent.CommponentType.Undefined;
-            while (DisplayCmdComponent.CommponentType.Command != result) {
-                index -= 1;
-                result = attackState.cmdComponents[index].Type;
-            }
-            string paramCmd = attackState.cmdComponents[index].Contents;
-            _processor.ExecutePSCommand("(Get-Command " + paramCmd + ").Parameters.Keys | Where{$_ -like '" + paramSeed + "*'}");
-            return;
+            _cmdComponents = null;
+            _cmdComponentsIndex = -1;
         }
 
-        // VARIABLE AUTOCOMPLETE
-        private void variableAutoComplete(AttackState attackState)
-        {
-            _processor.ExecutePSCommand("Get-Variable " + attackState.cmdComponents[attackState.cmdComponentsIndex].Contents.Replace("$", "") + "*");
-        }
-
-        // PATH AUTOCOMPLETE
-        private void pathAutoComplete(AttackState attackState)
-        {
-            Console.WriteLine(attackState.Command);
-            _processor.ExecutePSCommand("Get-ChildItem \"" + attackState.cmdComponents[attackState.cmdComponentsIndex].Contents.Replace("\"", "").Trim() + "*\"");
-        }
-                
-        // COMMAND AUTOCOMPLETE
-        private void cmdAutoComplete(AttackState attackState)
-        {
-            _processor.ExecutePSCommand("Get-Command " + attackState.cmdComponents[attackState.cmdComponentsIndex].Contents + "*");
-        }
-
+        // used to store list of command components and their types
+        private List<CommandItem> _cmdComponents;
+        // used to store index of command compnotent being auto-completed.
+        private int _cmdComponentsIndex { get; set; }
         private CommandProcessor _processor;
         private IDisplay _display;
     }

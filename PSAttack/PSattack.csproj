@@ -71,6 +71,7 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Processing\CommandItemType.cs" />
     <Compile Include="Processing\IDisplay.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -80,7 +81,7 @@
     <Compile Include="Processing\TabExpander.cs" />
     <Compile Include="Shell\PSColors.cs" />
     <Compile Include="Processing\Display.cs" />
-    <Compile Include="Processing\AttackState.cs" />
+    <Compile Include="Processing\CommandItem.cs" />
     <Compile Include="Utils\CryptoUtils.cs" />
     <Compile Include="Processing\CommandProcessor.cs" />
     <Compile Include="Program.cs" />
