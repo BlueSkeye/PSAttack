@@ -54,10 +54,42 @@ namespace PSAttack.Processing
                 CurrentComponent.Contents.Replace("$", "") + "*");
         }
 
+        // This function splits text on the command line up and identifies each component
+        private List<CommandItem> CaptureCommandComponents()
+        {
+            List<CommandItem> result = new List<CommandItem>();
+            int index = 0;
+            int cmdLength = _display.Prompt.Length + 1;
+            foreach (string item in Regex.Split(_display.DisplayedCommand, @"(?=[\s])")) {
+                CommandItem itemSeed = new CommandItem() {
+                    Contents = item,
+                    Type = seedIdentification(item)
+                };
+                cmdLength += item.Length;
+                if ((_display.DisplayedCommandInsertionIndex < cmdLength) && (-1 == _cmdComponentsIndex)) {
+                    _cmdComponentsIndex = index;
+                }
+                switch (itemSeed.Type) {
+                    case CommandItemType.Path:
+                    case CommandItemType.Undefined:
+                        if (CommandItemType.Path == result.Last().Type) {
+                            result.Last().Contents += itemSeed.Contents;
+                            continue;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                result.Add(itemSeed);
+                index++;
+            }
+            return result;
+        }
+
         internal void Process(ConsoleKeyInfo keyInfo, ref CommandItemType loopType)
         {
             if (CommandItemType.Undefined == loopType) {
-                _cmdComponents = dislayCmdComponents();
+                _cmdComponents = CaptureCommandComponents();
                 // route to appropriate autcomplete handler
                 switch (loopType = CurrentComponent.Type) {
                     case CommandItemType.Parameter:
@@ -127,38 +159,6 @@ namespace PSAttack.Processing
             // for now in case I need to come back to it (2016/08/21)
             //else if (seed.Length < 4 || seed.First() == ' ') { seedType = "unknown"; }
             return CommandItemType.Command;
-        }
-
-        // This function splits text on the command line up and identifies each component
-        private List<CommandItem> dislayCmdComponents()
-        {
-            List<CommandItem> result = new List<CommandItem>();
-            int index = 0;
-            int cmdLength = _display.Prompt.Length + 1;
-            foreach (string item in Regex.Split(_display.DisplayedCommand, @"(?=[\s])")) {
-                CommandItem itemSeed = new CommandItem() {
-                    Contents = item,
-                    Type = seedIdentification(item)
-                };
-                cmdLength += item.Length;
-                if ((cmdLength > _display.CursorPosition) && (-1 == _cmdComponentsIndex)) {
-                    _cmdComponentsIndex = index;
-                }
-                switch (itemSeed.Type) {
-                    case CommandItemType.Path:
-                    case CommandItemType.Undefined:
-                        if (CommandItemType.Path == result.Last().Type) {
-                            result.Last().Contents += itemSeed.Contents;
-                            continue;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-                result.Add(itemSeed);
-                index++;
-            }
-            return result;
         }
 
         internal void Reset()

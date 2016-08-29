@@ -45,6 +45,16 @@ namespace PSAttack.Processing
             get { return (CommandItemType.Undefined != _loopType); }
         }
 
+        private void DisplayRandomBanner()
+        {
+            // Display Loading Message
+            Console.ForegroundColor = PSColors.logoText;
+            Random random = new Random();
+            int pspLogoInt = random.Next(Strings.psaLogos.Count);
+            Console.WriteLine(Strings.psaLogos[pspLogoInt]);
+            Console.WriteLine("PS>Attack is loading...");
+        }
+
         // called when up or down is entered
         private void HandleHistoryKey(ConsoleKeyInfo keyInfo)
         {
@@ -91,21 +101,15 @@ namespace PSAttack.Processing
 
         private void Initialize()
         {
-            // Display Loading Message
-            Console.ForegroundColor = PSColors.logoText;
-            Random random = new Random();
-            int pspLogoInt = random.Next(Strings.psaLogos.Count);
-            Console.WriteLine(Strings.psaLogos[pspLogoInt]);
-            Console.WriteLine("PS>Attack is loading...");
+            DisplayRandomBanner();
 
             // Get Encrypted Values
             Assembly assembly = Assembly.GetExecutingAssembly();
             Stream valueStream = assembly.GetManifestResourceStream("PSAttack.Resources." + Properties.Settings.Default.valueStore);
             MemoryStream valueStore = CryptoUtils.DecryptFile(valueStream);
             string valueStoreStr = Encoding.Unicode.GetString(valueStore.ToArray());
-            string[] valuePairs = valueStoreStr.Replace("\r","").Split('\n');
 
-            foreach (string value in valuePairs) {
+            foreach (string value in valueStoreStr.Replace("\r", "").Split('\n')) {
                 if (string.IsNullOrEmpty(value)) { continue; }
                 string[] entry = value.Split('|');
                 _decryptedStore.Add(entry[0], entry[1]);

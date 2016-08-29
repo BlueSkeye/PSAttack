@@ -9,7 +9,7 @@ namespace PSAttack.Processing
         {
             _processor = processor;
             Prompt = _processor.CurrentPath + PromptSuffix;
-            CursorPosition = Prompt.Length;
+            DisplayedCommandInsertionIndex = Prompt.Length;
             DisplayedCommand = string.Empty;
             return;
         }
@@ -19,7 +19,7 @@ namespace PSAttack.Processing
             get { return TotalDisplayLength / Console.WindowWidth; }
         }
 
-        public int CursorPosition { get; private set; }
+        public int DisplayedCommandInsertionIndex { get; private set; }
 
         public string DisplayedCommand { get; private set; }
 
@@ -34,7 +34,7 @@ namespace PSAttack.Processing
         // return relative cusor pos without prompt
         public int RelativeCmdCursorPos
         {
-            get { return _cursorPos - Prompt.Length; }
+            get { return DisplayedCommandInsertionIndex - Prompt.Length; }
         }
 
         // return cursor pos ignoring window wrapping
@@ -43,9 +43,7 @@ namespace PSAttack.Processing
             get
             {
                 int wrapCount = this.ConsoleWrapCount;
-                return (0 < wrapCount)
-                    ? CursorPosition + Console.WindowWidth * wrapCount
-                    : CursorPosition;
+                return DisplayedCommandInsertionIndex + ((0 < wrapCount) ? (Console.WindowWidth * wrapCount) : 0);
             }
         }
 
@@ -60,35 +58,43 @@ namespace PSAttack.Processing
             Console.WriteLine("ERROR: {0}\n", errorMsg);
         }
 
-        // This is used to figure out where the cursor should be placed, accounting for line
-        // wraps in the command and where the prompt is
+        /// <summary>This is used to figure out where the cursor should be
+        /// placed, accounting for line wraps in the command and where the
+        /// prompt is.</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
         internal void GetCursorPosition(out int x, out int y)
         {
+            int windowWidth = Console.WindowWidth;
+
             // figure out if we've dropped down a line
-            int cursorYDiff = CursorPosition / Console.WindowWidth;
-            int cursorY = _promptPos + CursorPosition / Console.WindowWidth;
-            int cursorX = CursorPosition - (Console.WindowWidth * cursorYDiff);
+            int additionalLinesCount = DisplayedCommandInsertionIndex / windowWidth;
+            int cursorY = _promptLineNumber + additionalLinesCount;
+            int cursorX = DisplayedCommandInsertionIndex - (windowWidth * additionalLinesCount);
 
             // if X is < 0, set cursor to end of line
-            x = (0 > cursorX) ? Console.WindowWidth - 1 : cursorX;
+            x = (0 > cursorX) ? windowWidth - 1 : cursorX;
             y = cursorY;
+            return;
         }
 
+        /// <summary>Setup cursor just after prompt.</summary>
         internal void HomeCursor()
         {
-            CursorPosition = Prompt.Length;
+            DisplayedCommandInsertionIndex = Prompt.Length;
         }
 
         internal void InsertCommandCharacter(char candidate)
         {
             // figure out where to insert the typed character
-            this.DisplayedCommand = DisplayedCommand.Insert(CursorPosition - Prompt.Length, new string(candidate, 1));
+            DisplayedCommand = DisplayedCommand.Insert((DisplayedCommandInsertionIndex++) - Prompt.Length,
+                new string(candidate, 1));
             return;
         }
 
         internal void MoveCursor(bool forward)
         {
-            CursorPosition += (forward) ? 1 : -1;
+            DisplayedCommandInsertionIndex += (forward) ? 1 : -1;
         }
 
         internal void Output(bool commandCompleted)
@@ -96,17 +102,20 @@ namespace PSAttack.Processing
             if (commandCompleted) { PrintPrompt(); }
             // This is where we juggle things to make sure the cursor ends up where 
             // it's expected to be. I'm sure this could be improved on.
-            // Clear out typed text after prompt
-            Console.SetCursorPosition(Prompt.Length, _promptPos);
+
+            // Clear out typed text after prompt.
+            int promptLength = Prompt.Length;
             int windowWidth = Console.WindowWidth;
-            Console.Write(new string(' ', windowWidth));
+            char[] whiteLine = new string(' ', windowWidth).ToCharArray();
+            Console.SetCursorPosition(promptLength, _promptLineNumber);
+            Console.Write(whiteLine, 0, windowWidth - promptLength);
 
             // Clear out any lines below the prompt
-            for (int cursorDiff = ConsoleWrapCount; 0 < cursorDiff; cursorDiff--) {
-                Console.SetCursorPosition(0, _promptPos + cursorDiff);
-                Console.Write(new string(' ', windowWidth));
+            for (int additionalLineNumber = ConsoleWrapCount; 0 < additionalLineNumber; additionalLineNumber--) {
+                Console.SetCursorPosition(0, _promptLineNumber + additionalLineNumber);
+                Console.Write(whiteLine);
             }
-            Console.SetCursorPosition(Prompt.Length, _promptPos);
+            Console.SetCursorPosition(promptLength, _promptLineNumber);
 
             // Re-print the command
             Console.Write(DisplayedCommand);
@@ -118,9 +127,9 @@ namespace PSAttack.Processing
 
         internal void PrintPrompt()
         {
-            _promptPos = Console.CursorTop;
+            _promptLineNumber = Console.CursorTop;
             Write(PSColors.prompt, Prompt);
-            CursorPosition = Prompt.Length;
+            DisplayedCommandInsertionIndex = Prompt.Length;
             return;
         }
 
@@ -131,12 +140,12 @@ namespace PSAttack.Processing
 
         internal void SetCursorAfterCommand()
         {
-            CursorPosition = Prompt.Length + DisplayedCommand.Length;
+            DisplayedCommandInsertionIndex = Prompt.Length + DisplayedCommand.Length;
         }
 
         internal void SetCursorAfterDisplayedCommand()
         {
-            CursorPosition = EndOfDisplayCmdPos;
+            DisplayedCommandInsertionIndex = EndOfDisplayCmdPos;
         }
 
         public void SetDisplayedCommand(string displayed)
@@ -158,7 +167,9 @@ namespace PSAttack.Processing
         // absolute cusor position (not accounting for wrapping in the window)
         private int _cursorPos;
         private CommandProcessor _processor;
-        // The vertical position of the last prompt printed. Used so we know where to start re-writing commands
-        private int _promptPos;
+        /// <summary>The vertical position of the last prompt printed. Used so
+        /// we know where to start re-writing commands. The topmost line is
+        /// numbered 0.</summary>
+        private int _promptLineNumber;
     }
 }

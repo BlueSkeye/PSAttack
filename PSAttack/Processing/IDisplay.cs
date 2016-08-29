@@ -7,7 +7,7 @@ namespace PSAttack.Processing
 {
     internal interface IDisplay
     {
-        int CursorPosition { get; }
+        int DisplayedCommandInsertionIndex { get; }
         string DisplayedCommand { get; }
         string Prompt { get; }
 
